@@ -63,7 +63,8 @@
     "http": "latest",
     "socket.io": "latest",
     "cors": "latest",
-    "uuid": "latest"
+    "uuid": "latest",
+    "@tanstack/react-query": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
