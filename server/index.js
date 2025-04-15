@@ -4,26 +4,33 @@ const { Server } = require("socket.io")
 const cors = require("cors")
 const { v4: uuidv4 } = require("uuid")
 
+// Initialize Express app
 const app = express()
 app.use(cors())
 
+// Create HTTP server
 const server = http.createServer(app)
+
+// Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "*", // Vercel 앱 URL
+    origin: process.env.CLIENT_URL || "*", // Vercel app URL
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["websocket", "polling"], // 폴백 메커니즘 지원
+  transports: ["websocket", "polling"], // Support fallback mechanisms
 })
 
-// 활성 사용자 저장
+// Store active users
 const activeUsers = new Map()
 
-// 메시지 저장 (실제 애플리케이션에서는 데이터베이스 사용)
+// Store messages (in a real app, use a database)
 const messages = []
 
-// 상태 확인 엔드포인트
+// Maximum number of stored messages
+const MAX_MESSAGES = 100
+
+// Health check endpoint
 app.get("/", (req, res) => {
   res.send({
     status: "online",
@@ -32,27 +39,39 @@ app.get("/", (req, res) => {
   })
 })
 
-// Socket.IO 연결 처리
+// Socket.IO connection handler
 io.on("connection", (socket) => {
   const username = socket.handshake.query.username
-  console.log(`사용자 연결됨: ${username} (${socket.id})`)
+  const character = socket.handshake.query.character
+  const userId = socket.id
 
-  // 사용자 추가
-  activeUsers.set(socket.id, username)
+  console.log(`User connected: ${username} (${userId})`)
 
-  // 시스템 메시지 전송
+  // Add user to active users
+  activeUsers.set(userId, {
+    id: userId,
+    username,
+    character,
+    isOnline: true,
+  })
+
+  // Send system message
   const joinMessage = {
     id: uuidv4(),
-    text: `${username}님이 입장하셨습니다.`,
+    text: `${username} has joined the chat!`,
     sender: "system",
     timestamp: new Date(),
+    isSystem: true,
   }
   io.emit("message", joinMessage)
 
-  // 사용자 목록 업데이트 및 브로드캐스트
-  io.emit("userList", Array.from(activeUsers.values()))
+  // Update and broadcast user list
+  broadcastUserList()
 
-  // 메시지 수신 및 브로드캐스트
+  // Send recent message history to new user
+  socket.emit("messageHistory", messages.slice(-50))
+
+  // Handle message sending
   socket.on("sendMessage", (messageData) => {
     const message = {
       id: uuidv4(),
@@ -60,43 +79,70 @@ io.on("connection", (socket) => {
       timestamp: new Date(),
     }
 
-    // 최근 메시지 저장 (최대 100개)
+    // Store message (limit to MAX_MESSAGES)
     messages.push(message)
-    if (messages.length > 100) {
+    if (messages.length > MAX_MESSAGES) {
       messages.shift()
     }
 
+    // Broadcast message to all clients
     io.emit("message", message)
   })
 
-  // 연결 해제
-  socket.on("disconnect", () => {
-    const user = activeUsers.get(socket.id)
+  // Handle typing indicator
+  socket.on("typing", ({ isTyping }) => {
+    const user = activeUsers.get(userId)
     if (user) {
-      console.log(`사용자 연결 해제: ${user} (${socket.id})`)
+      io.emit("userTyping", {
+        userId,
+        username: user.username,
+        isTyping,
+      })
+    }
+  })
 
-      // 시스템 메시지 전송
+  // Handle disconnection
+  socket.on("disconnect", () => {
+    const user = activeUsers.get(userId)
+    if (user) {
+      console.log(`User disconnected: ${user.username} (${userId})`)
+
+      // Send system message
       const leaveMessage = {
         id: uuidv4(),
-        text: `${user}님이 퇴장하셨습니다.`,
+        text: `${user.username} has left the chat.`,
         sender: "system",
         timestamp: new Date(),
+        isSystem: true,
       }
       io.emit("message", leaveMessage)
 
-      activeUsers.delete(socket.id)
-      io.emit("userList", Array.from(activeUsers.values()))
+      // Remove user from active users
+      activeUsers.delete(userId)
+
+      // Update and broadcast user list
+      broadcastUserList()
     }
   })
+
+  // Helper function to broadcast user list
+  function broadcastUserList() {
+    io.emit("userList", Array.from(activeUsers.values()))
+  }
 })
 
-// 최근 메시지 가져오기 API
+// API to get recent messages
 app.get("/api/messages", (req, res) => {
   res.json(messages)
 })
 
-// 서버 시작
+// API to get active users
+app.get("/api/users", (req, res) => {
+  res.json(Array.from(activeUsers.values()))
+})
+
+// Start server
 const PORT = process.env.PORT || 3001
 server.listen(PORT, () => {
-  console.log(`Socket.IO 서버가 포트 ${PORT}에서 실행 중입니다`)
+  console.log(`Socket.IO server running on port ${PORT}`)
 })
