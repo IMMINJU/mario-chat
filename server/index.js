@@ -10,8 +10,9 @@ app.use(cors())
 const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000", // 클라이언트 URL
+    origin: process.env.CLIENT_URL || "*", // Vercel 앱 URL
     methods: ["GET", "POST"],
+    credentials: true,
   },
 })
 
