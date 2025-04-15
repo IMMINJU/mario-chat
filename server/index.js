@@ -10,93 +10,295 @@ app.use(cors())
 const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "*", // Vercel 앱 URL
+    origin: process.env.CLIENT_URL || "*", // Client URL
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["websocket", "polling"], // 폴백 메커니즘 지원
+  transports: ["websocket", "polling"], // Fallback mechanism
 })
 
-// 활성 사용자 저장
+// Store active users
 const activeUsers = new Map()
 
-// 메시지 저장 (실제 애플리케이션에서는 데이터베이스 사용)
-const messages = []
+// Store chat rooms
+const chatRooms = new Map([
+  ["general", { name: "General", messages: [] }],
+  ["mushroom-kingdom", { name: "Mushroom Kingdom", messages: [] }],
+  ["bowser-castle", { name: "Bowser's Castle", messages: [] }],
+])
 
-// 상태 확인 엔드포인트
+// Store typing status
+const typingUsers = new Map()
+
+// Status check endpoint
 app.get("/", (req, res) => {
   res.send({
     status: "online",
     connections: activeUsers.size,
+    rooms: Array.from(chatRooms.keys()),
     uptime: process.uptime(),
   })
 })
 
-// Socket.IO 연결 처리
+// Get rooms list
+app.get("/api/rooms", (req, res) => {
+  const roomsList = Array.from(chatRooms.entries()).map(([id, room]) => ({
+    id,
+    name: room.name,
+    userCount: getActiveUsersInRoom(id).length,
+  }))
+  res.json(roomsList)
+})
+
+// Get messages for a specific room
+app.get("/api/messages/:roomId", (req, res) => {
+  const roomId = req.params.roomId
+  const room = chatRooms.get(roomId)
+
+  if (!room) {
+    return res.status(404).json({ error: "Room not found" })
+  }
+
+  res.json(room.messages)
+})
+
+// Helper function to get active users in a room
+function getActiveUsersInRoom(roomId) {
+  const usersInRoom = []
+  for (const [socketId, userData] of activeUsers.entries()) {
+    if (userData.room === roomId) {
+      usersInRoom.push({
+        id: socketId,
+        username: userData.username,
+        character: userData.character,
+      })
+    }
+  }
+  return usersInRoom
+}
+
+// Socket.IO connection handling
 io.on("connection", (socket) => {
   const username = socket.handshake.query.username
-  console.log(`사용자 연결됨: ${username} (${socket.id})`)
+  const character = socket.handshake.query.character
+  const initialRoom = socket.handshake.query.room || "general"
 
-  // 사용자 추가
-  activeUsers.set(socket.id, username)
+  console.log(`User connected: ${username} (${socket.id})`)
 
-  // 시스템 메시지 전송
+  // Add user to active users
+  activeUsers.set(socket.id, {
+    username,
+    character,
+    room: initialRoom,
+  })
+
+  // Join the initial room
+  socket.join(initialRoom)
+
+  // Send room history to the user
+  const roomData = chatRooms.get(initialRoom)
+  if (roomData) {
+    socket.emit("roomHistory", roomData.messages)
+  }
+
+  // Send system message about user joining
   const joinMessage = {
     id: uuidv4(),
-    text: `${username}님이 입장하셨습니다.`,
+    text: `${username} has joined the chat`,
     sender: "system",
     timestamp: new Date(),
+    room: initialRoom,
   }
-  io.emit("message", joinMessage)
 
-  // 사용자 목록 업데이트 및 브로드캐스트
-  io.emit("userList", Array.from(activeUsers.values()))
+  // Add message to room history
+  if (chatRooms.has(initialRoom)) {
+    chatRooms.get(initialRoom).messages.push(joinMessage)
+    // Keep only the last 100 messages
+    if (chatRooms.get(initialRoom).messages.length > 100) {
+      chatRooms.get(initialRoom).messages.shift()
+    }
+  }
 
-  // 메시지 수신 및 브로드캐스트
+  // Broadcast join message to the room
+  io.to(initialRoom).emit("message", joinMessage)
+
+  // Update user list for the room
+  io.to(initialRoom).emit("userList", getActiveUsersInRoom(initialRoom))
+
+  // Handle room change
+  socket.on("joinRoom", (newRoom) => {
+    const oldRoom = activeUsers.get(socket.id).room
+
+    // Leave old room
+    socket.leave(oldRoom)
+
+    // Send leave message to old room
+    const leaveMessage = {
+      id: uuidv4(),
+      text: `${username} has left the chat`,
+      sender: "system",
+      timestamp: new Date(),
+      room: oldRoom,
+    }
+
+    if (chatRooms.has(oldRoom)) {
+      chatRooms.get(oldRoom).messages.push(leaveMessage)
+    }
+
+    io.to(oldRoom).emit("message", leaveMessage)
+
+    // Update user's room
+    activeUsers.set(socket.id, {
+      ...activeUsers.get(socket.id),
+      room: newRoom,
+    })
+
+    // Join new room
+    socket.join(newRoom)
+
+    // Send room history to the user
+    const roomData = chatRooms.get(newRoom)
+    if (roomData) {
+      socket.emit("roomHistory", roomData.messages)
+    }
+
+    // Send join message to new room
+    const joinNewRoomMessage = {
+      id: uuidv4(),
+      text: `${username} has joined the chat`,
+      sender: "system",
+      timestamp: new Date(),
+      room: newRoom,
+    }
+
+    if (chatRooms.has(newRoom)) {
+      chatRooms.get(newRoom).messages.push(joinNewRoomMessage)
+    }
+
+    io.to(newRoom).emit("message", joinNewRoomMessage)
+
+    // Update user lists for both rooms
+    io.to(oldRoom).emit("userList", getActiveUsersInRoom(oldRoom))
+    io.to(newRoom).emit("userList", getActiveUsersInRoom(newRoom))
+  })
+
+  // Handle message sending
   socket.on("sendMessage", (messageData) => {
+    const room = activeUsers.get(socket.id).room
+
     const message = {
       id: uuidv4(),
       ...messageData,
       timestamp: new Date(),
+      room,
     }
 
-    // 최근 메시지 저장 (최대 100개)
-    messages.push(message)
-    if (messages.length > 100) {
-      messages.shift()
-    }
-
-    io.emit("message", message)
-  })
-
-  // 연결 해제
-  socket.on("disconnect", () => {
-    const user = activeUsers.get(socket.id)
-    if (user) {
-      console.log(`사용자 연결 해제: ${user} (${socket.id})`)
-
-      // 시스템 메시지 전송
-      const leaveMessage = {
-        id: uuidv4(),
-        text: `${user}님이 퇴장하셨습니다.`,
-        sender: "system",
-        timestamp: new Date(),
+    // Add message to room history
+    if (chatRooms.has(room)) {
+      chatRooms.get(room).messages.push(message)
+      // Keep only the last 100 messages
+      if (chatRooms.get(room).messages.length > 100) {
+        chatRooms.get(room).messages.shift()
       }
-      io.emit("message", leaveMessage)
-
-      activeUsers.delete(socket.id)
-      io.emit("userList", Array.from(activeUsers.values()))
     }
+
+    // Broadcast message to the room
+    io.to(room).emit("message", message)
+
+    // Clear typing indicator for this user
+    socket.to(room).emit("userStoppedTyping", socket.id)
+    typingUsers.delete(socket.id)
+  })
+
+  // Handle typing indicator
+  socket.on("typing", () => {
+    const userData = activeUsers.get(socket.id)
+    if (!userData) return
+
+    const room = userData.room
+
+    // Set typing status with timeout
+    if (!typingUsers.has(socket.id)) {
+      typingUsers.set(socket.id, true)
+      socket.to(room).emit("userTyping", {
+        id: socket.id,
+        username: userData.username,
+      })
+    }
+  })
+
+  socket.on("stoppedTyping", () => {
+    const userData = activeUsers.get(socket.id)
+    if (!userData) return
+
+    const room = userData.room
+
+    // Clear typing status
+    typingUsers.delete(socket.id)
+    socket.to(room).emit("userStoppedTyping", socket.id)
+  })
+
+  // Handle private messages
+  socket.on("privateMessage", ({ to, text }) => {
+    const fromUser = activeUsers.get(socket.id)
+    const toSocketId = Array.from(activeUsers.entries()).find(([_, userData]) => userData.username === to)?.[0]
+
+    if (toSocketId && fromUser) {
+      const privateMessage = {
+        id: uuidv4(),
+        text,
+        sender: fromUser.username,
+        receiver: to,
+        timestamp: new Date(),
+        isPrivate: true,
+        character: fromUser.character,
+      }
+
+      // Send to recipient
+      socket.to(toSocketId).emit("privateMessage", privateMessage)
+
+      // Send back to sender
+      socket.emit("privateMessage", privateMessage)
+    }
+  })
+
+  // Handle disconnect
+  socket.on("disconnect", () => {
+    const userData = activeUsers.get(socket.id)
+    if (!userData) return
+
+    console.log(`User disconnected: ${userData.username} (${socket.id})`)
+
+    const room = userData.room
+
+    // Send system message about user leaving
+    const leaveMessage = {
+      id: uuidv4(),
+      text: `${userData.username} has left the chat`,
+      sender: "system",
+      timestamp: new Date(),
+      room,
+    }
+
+    if (chatRooms.has(room)) {
+      chatRooms.get(room).messages.push(leaveMessage)
+    }
+
+    io.to(room).emit("message", leaveMessage)
+
+    // Remove user from active users
+    activeUsers.delete(socket.id)
+
+    // Clear typing indicator
+    typingUsers.delete(socket.id)
+
+    // Update user list for the room
+    io.to(room).emit("userList", getActiveUsersInRoom(room))
   })
 })
 
-// 최근 메시지 가져오기 API
-app.get("/api/messages", (req, res) => {
-  res.json(messages)
-})
-
-// 서버 시작
+// Start server
 const PORT = process.env.PORT || 3001
 server.listen(PORT, () => {
-  console.log(`Socket.IO 서버가 포트 ${PORT}에서 실행 중입니다`)
+  console.log(`Socket.IO server running on port ${PORT}`)
 })
