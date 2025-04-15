@@ -7,8 +7,8 @@ import { Providers } from "./providers"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "슈퍼마리오 채팅",
-  description: "Socket.IO를 활용한 슈퍼마리오 테마 채팅 서비스",
+  title: "Super Mario Chat",
+  description: "Super Mario themed chat service using Socket.IO",
     generator: 'v0.dev'
 }
 

@@ -67,7 +67,7 @@ export default function MarioChatInterface() {
     setMessages([
       {
         id: "welcome",
-        text: `${username}님, 마리오 월드에 오신 것을 환영합니다!`,
+        text: `Welcome to Mario World, ${username}!`,
         sender: "system",
         timestamp: new Date(),
         character: "toad",
@@ -138,30 +138,38 @@ export default function MarioChatInterface() {
         <CardContent className="p-6">
           <form onSubmit={handleSubmitUsername(onUsernameSubmit)} className="space-y-6">
             <div className="space-y-2">
-              <label className="font-mario text-xs md:text-sm text-mario-black">닉네임</label>
+              <label className="font-mario text-xs md:text-sm text-mario-black">Nickname</label>
               <Input
                 {...registerUsername("username", { required: true })}
                 className="border-mario-black border-2 font-mario text-xs"
-                placeholder="닉네임을 입력하세요"
+                placeholder="Enter your nickname"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="font-mario text-xs md:text-sm text-mario-black">캐릭터</label>
+              <label className="font-mario text-xs md:text-sm text-mario-black">Character</label>
               <div className="grid grid-cols-3 gap-2">
-                {["mario", "luigi", "toad", "peach", "bowser", "yoshi"].map((char) => (
-                  <label key={char} className="cursor-pointer">
-                    <input type="radio" value={char} {...registerUsername("character")} className="sr-only" />
-                    <div
-                      className={`flex flex-col items-center p-2 rounded-lg transition-all ${
-                        char === character ? "bg-mario-blue text-white" : "bg-gray-100 hover:bg-gray-200"
-                      }`}
-                    >
-                      <MarioAvatar character={char as any} size="lg" />
-                      <span className="mt-2 font-mario text-[10px] capitalize">{char}</span>
-                    </div>
-                  </label>
-                ))}
+                {["mario", "luigi", "toad", "peach", "bowser", "yoshi"].map((char) => {
+                  return (
+                    <label key={char} className="cursor-pointer">
+                      <input
+                        type="radio"
+                        value={char}
+                        {...registerUsername("character")}
+                        className="sr-only"
+                        onChange={() => setCharacter(char as any)}
+                      />
+                      <div
+                        className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+                          char === character ? "bg-mario-blue text-white" : "bg-gray-100 hover:bg-gray-200"
+                        }`}
+                      >
+                        <MarioAvatar character={char as any} size="lg" />
+                        <span className="mt-2 font-mario text-[10px] capitalize">{char}</span>
+                      </div>
+                    </label>
+                  )
+                })}
               </div>
             </div>
 
@@ -169,7 +177,7 @@ export default function MarioChatInterface() {
               type="submit"
               className="w-full mario-button bg-mario-green hover:bg-mario-green/90 text-white font-mario text-xs"
             >
-              게임 시작!
+              Start Game!
             </Button>
           </form>
         </CardContent>
@@ -182,7 +190,7 @@ export default function MarioChatInterface() {
       <CardHeader className="flex flex-row items-center justify-between bg-mario-red p-4">
         <div className="flex items-center">
           <div className="question-block mr-3"></div>
-          <h2 className="font-mario text-white text-xs md:text-sm">마리오 채팅</h2>
+          <h2 className="font-mario text-white text-xs md:text-sm">Mario Chat</h2>
         </div>
         <Button
           onClick={handleLogout}
@@ -238,13 +246,13 @@ export default function MarioChatInterface() {
             <div className="pipe-top"></div>
             <Input
               {...register("message", { required: true })}
-              placeholder="메시지를 입력하세요..."
+              placeholder="Type your message..."
               className="border-none bg-transparent text-white placeholder:text-white/70 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
           <Button type="submit" className="mario-button bg-mario-red hover:bg-mario-red/90 text-white">
             <Send className="h-4 w-4 mr-2" />
-            전송
+            Send
           </Button>
         </form>
       </CardFooter>
