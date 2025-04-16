@@ -78,11 +78,6 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "coin-spin": {
-          "0%": { transform: "rotateY(0deg)" },
-          "50%": { transform: "rotateY(180deg)" },
-          "100%": { transform: "rotateY(360deg)" },
-        },
         jump: {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-10px)" },
@@ -95,12 +90,14 @@ const config = {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "coin-spin": "coin-spin 1s linear infinite",
         jump: "jump 0.5s ease-in-out",
         "mushroom-bounce": "mushroom-bounce 2s ease-in-out infinite",
       },
       fontFamily: {
         mario: ["'Press Start 2P'", "system-ui", "sans-serif"],
+      },
+      backgroundImage: {
+        "question-block": "url('/question-block.png')",
       },
     },
   },

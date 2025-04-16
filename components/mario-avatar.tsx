@@ -1,13 +1,13 @@
 import Image from "next/image"
-import type { MarioCharacter } from "@/types/chat"
+
+type MarioCharacter = "mario" | "luigi" | "toad" | "peach" | "bowser" | "yoshi"
 
 interface MarioAvatarProps {
   character: MarioCharacter
   size?: "sm" | "md" | "lg"
-  priority?: boolean
 }
 
-export default function MarioAvatar({ character, size = "md", priority = false }: MarioAvatarProps) {
+export default function MarioAvatar({ character, size = "md" }: MarioAvatarProps) {
   const sizeClass = {
     sm: "w-8 h-8",
     md: "w-10 h-10",
@@ -27,12 +27,11 @@ export default function MarioAvatar({ character, size = "md", priority = false }
     <div className={`${sizeClass[size]} relative flex-shrink-0`}>
       <div className="absolute inset-0 bg-white rounded-full border-2 border-mario-black overflow-hidden">
         <Image
-          src={characterImages[character] || "/placeholder.svg"}
+          src={characterImages[character] || "/mario-avatar.png"}
           alt={character}
           width={size === "lg" ? 64 : 40}
           height={size === "lg" ? 64 : 40}
           className="object-cover"
-          priority={priority}
         />
       </div>
     </div>

@@ -73,7 +73,7 @@ export default function UserForm({ onSubmit, defaultCharacter = "mario" }: UserF
                       char === selectedCharacter ? "bg-mario-blue text-white" : "bg-gray-100 hover:bg-gray-200"
                     }`}
                   >
-                    <MarioAvatar character={char} size="lg" priority={true} />
+                    <MarioAvatar character={char} size="lg" />
                     <span className="mt-2 font-mario text-[10px] capitalize">{char}</span>
                   </label>
                 </div>

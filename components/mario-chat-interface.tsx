@@ -5,26 +5,21 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LogOut } from "lucide-react"
 import { useChat } from "@/hooks/use-chat"
-import { useSound } from "@/hooks/use-sound"
 import type { MarioCharacter } from "@/types/chat"
 import UserForm from "./user-form"
 import MessageList from "./message-list"
 import MessageForm from "./message-form"
-import ConnectionStatus from "./connection-status"
 
 export default function MarioChatInterface() {
   const [username, setUsername] = useState<string>("")
   const [character, setCharacter] = useState<MarioCharacter>("mario")
   const [showUsernameForm, setShowUsernameForm] = useState(true)
 
-  // Initialize chat hook
+  // Only initialize chat when user has submitted their username
   const chat = useChat({
     username: showUsernameForm ? "" : username,
     character,
   })
-
-  // Initialize sound hook
-  const coinSound = useSound("/coin.mp3")
 
   // Handle user form submission
   const handleUserSubmit = useCallback((data: { username: string; character: MarioCharacter }) => {
@@ -37,9 +32,8 @@ export default function MarioChatInterface() {
   const handleSendMessage = useCallback(
     (message: string) => {
       chat.sendMessage(message)
-      coinSound.play()
     },
-    [chat, coinSound],
+    [chat],
   )
 
   // Handle logout
@@ -70,28 +64,25 @@ export default function MarioChatInterface() {
           <div className="question-block mr-3" aria-hidden="true"></div>
           <h2 className="font-mario text-white text-xs md:text-sm">Mario Chat</h2>
         </div>
-        <Button
-          onClick={handleLogout}
-          variant="outline"
-          size="icon"
-          className="mario-button bg-mario-yellow hover:bg-mario-yellow/90 h-8 w-8"
-          aria-label="Logout"
-        >
-          <LogOut className="h-4 w-4 text-mario-black" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <div
+            className={`w-3 h-3 rounded-full ${chat.isConnected ? "bg-green-500" : "bg-red-500"}`}
+            aria-hidden="true"
+          />
+          <span className="text-xs text-white font-mario">{chat.isConnected ? "Connected" : "Connecting..."}</span>
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            size="icon"
+            className="mario-button bg-mario-yellow hover:bg-mario-yellow/90 h-8 w-8"
+            aria-label="Logout"
+          >
+            <LogOut className="h-4 w-4 text-mario-black" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="p-0">
-        {/* Connection status with countdown */}
-        <ConnectionStatus
-          isConnected={chat.isConnected}
-          isConnecting={chat.isConnecting}
-          connectionError={chat.connectionError}
-          countdown={chat.connectionCountdown}
-          onReconnect={chat.reconnect}
-        />
-
-        {/* User info */}
-        <div className="bg-mario-blue/80 p-2 border-b-2 border-mario-black">
+        <div className="bg-mario-blue p-2 border-y-2 border-mario-black">
           <div className="flex items-center">
             <div className="coin" aria-hidden="true"></div>
             <span className="font-mario text-white text-xs">
@@ -100,7 +91,6 @@ export default function MarioChatInterface() {
           </div>
         </div>
 
-        {/* Message list */}
         <MessageList messages={chat.messages} currentUsername={username} typingUsers={typingUsers} />
       </CardContent>
       <CardFooter className="border-t-2 border-mario-black p-4">

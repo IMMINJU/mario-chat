@@ -120,8 +120,6 @@ body {
   border-radius: 50%;
   border: 2px solid #000;
   display: inline-block;
-  animation: coin-spin 2s linear infinite;
-  transform-style: preserve-3d;
   margin-right: 5px;
 }
 
@@ -200,19 +198,6 @@ body {
   height: 15px;
   background-color: #fbf5de;
   border: 2px solid #000;
-}
-
-/* 애니메이션 키프레임 추가 - 이전에 tailwind.config.ts에 정의되어 있지만 실제 사용을 위해 추가 */
-@keyframes coin-spin {
-  0% {
-    transform: rotateY(0deg);
-  }
-  50% {
-    transform: rotateY(180deg);
-  }
-  100% {
-    transform: rotateY(360deg);
-  }
 }
 
 @keyframes mushroom-bounce {
