@@ -102,11 +102,6 @@ const config = {
       fontFamily: {
         mario: ["'Press Start 2P'", "system-ui", "sans-serif"],
       },
-      backgroundImage: {
-        "mario-pattern": "url('/mario-pattern.png')",
-        "brick-pattern": "url('/brick-pattern.png')",
-        "question-block": "url('/question-block.png')",
-      },
     },
   },
   plugins: [require("tailwindcss-animate")],
